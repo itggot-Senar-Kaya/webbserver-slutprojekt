@@ -30,7 +30,7 @@ a {
 }
 
 a:hover:not(.active) {
-    background-color: grey;
+    background-color: white;
 }
 
 .background {
