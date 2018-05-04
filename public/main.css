@@ -29,6 +29,16 @@ a {
     float: left;
 }
 
+h1, h2 {
+display: block;
+color: black;
+padding: 5vh;
+font-family: verdana;
+font-size: 18px;
+text-decoration: none;
+float: middle;
+}
+
 a:hover:not(.active) {
     background-color: white;
 }
