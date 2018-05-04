@@ -1,4 +1,9 @@
-form action="/create" method="POST"
-    input type="text" name="post_title" placeholder="Title"
-    input type="text" name="post_text" placeholder="Text"
-    input type="submit" value="Create"
+form class="logout" method="POST" action="/logout"
+    input type="submit" value="logout"
+
+a href="/create" Create
+-notes.each do |note|
+    div class="block"
+        p class="note" #{note[1]}
+        form method="POST" action="/delete/#{note[0]}"
+            input type="submit" value="delete"

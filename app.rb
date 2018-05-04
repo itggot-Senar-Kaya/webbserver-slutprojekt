@@ -4,73 +4,97 @@ require 'slim'
 require 'sqlite3'
 require 'bcrypt'
 
+class App < Sinatra::Base
+	enable :sessions
 
-	get('/home') do
-		erb(:test)
+	get '/' do
+		slim(:index)
 	end
 
-	get('/') do
-		db = SQLite3::Database.new("db/database.sqlite")
-		result = db.execute("SELECT * FROM posts")
-		slim(:index, locals:{post:result})
+	post ('/login') do
+		db = SQLite3::Database.new("db/database.sqlite") 
+		username = params["username"] 
+		password = params["password"]
+		kryptera_password = db.execute("SELECT password FROM accounts WHERE username=?", username)
+		if kryptera_password == []
+			password_verify = nil
+		else
+			kryptera_password = kryptera_password[0][0] 
+			password_verify = BCrypt::Password.new(kryptera_password) 
+		end
+		if password_verify == password
+			result = db.execute("SELECT id FROM accounts WHERE username=?", [username])
+			session[:id] = result[0][0]
+			session[:login] = true 
+		else
+			session[:login] = false 
+		end
+		redirect('/notes')
 	end
 
-
-	get('/login') do
-		slim(:login, locals:{username:nil, error:nil})
+	
+	get '/create' do
+		slim(:create)
 	end
 
-	get('/register') do
-		slim(:register, locals:{username:nil, error:nil})
+	
+	get '/notes' do
+		db = SQLite3::Database.new("db/database.sqlite") 
+		if session[:login] == true
+			note = db.execute("SELECT * FROM notes WHERE account_id=?", session[:id].to_i)
+			slim(:notes, locals:{notes:note}) 
+		else
+			session[:message] = "Fel användarnamn eller lösenord"
+			redirect("/error")
+		end
+	end
+
+	get '/register' do
+		slim(:register)
 	end
 
 	post('/register') do
 		db = SQLite3::Database.new("db/database.sqlite")
-		reg_username = params["reg-username"]
-		reg_password1 = params["reg-password1"]
-		reg_password2 = params["reg-password2"]
-		if reg_password1 == reg_password2
-			reg_password = reg_password1
-			usernames = db.execute("SELECT username FROM users").join(" ").split(" ")
-			p usernames
-			if !usernames.include?(reg_username)
-				crypt_password = BCrypt::Password.create(reg_password)
-				db.execute("INSERT INTO users('username', 'password') VALUES(?, ?)", [reg_username, crypt_password])
-				log_error = ""
-			else
-				log_error = "That username already exists"
+		username = params["username"]  
+		password = params["password"]
+		confirm = params["password2"]
+		if confirm == password
+			begin
+				password_verify = BCrypt::Password.create(password)
+				db.execute("INSERT INTO accounts(username, password) VALUES(?,?) ", [username, password_verify])
+				redirect('/') #a href="/"
+			rescue SQLite3::ConstraintException 
+				session[:message] = "Username is not available"
+				redirect("/error")
 			end
 		else
-			log_error = "Passwords do not match"
-			redirect('/register')
+			session[:message] = "Password does not match"
+			redirect("/error")
 		end
-		session[:logged] = true
-		session[:username] = reg_username
-		log_error = ""
-		redirect('/')
 	end
 
-	post('/login') do
+	post ('/create') do
 		db = SQLite3::Database.new("db/database.sqlite")
-		log_username = params["log-username"]
-		log_password = params["log-password"]
-		password = db.execute("SELECT password FROM users WHERE username IS '#{log_username}'")
-		if password[0] == nil
-			log_error = "Wrong username or password"
-			redirect('/')
-		else
-			password_digest = BCrypt::Password.new(password[0][0])
-			if  password_digest == log_password
-				session[:logged] = true
-				session[:username] = log_username
-				log_error = ""
-			else
-				log_error = "Wrong username or password"
-			end
-		redirect('/')
+		content = params["content"]
+		begin
+			db.execute("INSERT INTO notes(account_id,msg) VALUES(?,?)", [session[:id],content])
+		rescue SQLite3::ConstraintException 
+			session[:message] = "You are not logged in"
+			redirect("/error")
 		end
+		redirect('/notes')
 	end
 
+	post ('/delete/:id') do
+		db = SQLite3::Database.new("db/database.sqlite")
+		id = params[:id]
+		p id.to_s + "-----------------------------------------------------------"
+		executestring = "DELETE FROM notes WHERE id = " + id.to_s
+		p executestring
+		db.execute(executestring)
+		redirect('/notes')
+	end
+		
 	post('/logout') do
 		log_error = ""
 		session[:logged] = false
@@ -78,4 +102,7 @@ require 'bcrypt'
 		redirect('/')
 	end
 
-
+	get ('/error') do
+		slim(:error, locals:{msg:session[:message]})
+	end
+end
