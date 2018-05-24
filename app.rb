@@ -89,7 +89,7 @@ class App < Sinatra::Base
 		db = SQLite3::Database.new("db/database.sqlite")
 		id = params[:id]
 		p id.to_s + "-----------------------------------------------------------"
-		executestring = ("DELETE FROM notes WHERE id = ?",  [id.to_s])
+		executestring = db.execute("DELETE FROM notes WHERE id = ?",  id.to_s)
 		p executestring
 		db.execute(executestring)
 		redirect('/notes')
